@@ -1,28 +1,38 @@
 "use client";
-import {useEffect,useRef} from "react";
+
+import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import { useEffect, useState } from "react";
 import io from "socket.io-client";
-import mapboxgl from "mapbox-gl";
+import "leaflet/dist/leaflet.css";
 
-mapboxgl.accessToken="YOUR_MAPBOX_TOKEN";
+export default function LiveMap() {
+  const [locations, setLocations] = useState([]);
 
-export default function LiveMap(){
- const mapRef=useRef(null);
+  useEffect(() => {
+    const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL);
 
- useEffect(()=>{
-  const map=new mapboxgl.Map({
-    container: mapRef.current,
-    style:"mapbox://styles/mapbox/streets-v11",
-    center:[36.82,-1.29],
-    zoom:10
-  });
+    socket.on("location_update", (data) => {
+      setLocations((prev) => [...prev, data]);
+    });
 
-  const socket=io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:4000");
+    return () => socket.disconnect();
+  }, []);
 
-  socket.on("location_update",(d)=>{
-    new mapboxgl.Marker().setLngLat([d.lng,d.lat]).addTo(map);
-  });
+  return (
+    <MapContainer
+      center={[-1.29, 36.82]} // Nairobi
+      zoom={13}
+      style={{ height: "500px", width: "100%" }}
+    >
+      <TileLayer
+        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+      />
 
- },[]);
-
- return <div ref={mapRef} style={{height:"500px"}}/>;
+      {locations.map((loc, i) => (
+        <Marker key={i} position={[loc.lat, loc.lng]}>
+          <Popup>{loc.device_id}</Popup>
+        </Marker>
+      ))}
+    </MapContainer>
+  );
 }
